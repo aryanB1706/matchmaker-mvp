@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import customerRoutes from './routes/customerRoutes.js';
@@ -30,12 +31,23 @@ const __dirname = path.dirname(__filename);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  // Serve static build folder
-  app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+  const distPath = path.join(__dirname, '../../frontend/dist');
+  
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+  }
 
   // Fallback route to serve index.html for SPA routing
   app.get(/.*/, (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../../frontend', 'dist', 'index.html'));
+    const indexPath = path.resolve(__dirname, '../../frontend', 'dist', 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(200).json({ 
+        success: true, 
+        message: 'Milan Matchmaking Backend API is running' 
+      });
+    }
   });
 }
 
