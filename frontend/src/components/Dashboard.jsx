@@ -30,7 +30,7 @@ const Dashboard = ({ onLogout }) => {
     try {
       const response = await fetch('/api/customers');
       const data = await response.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.data)) {
         setCustomers(data.data);
         setFilteredCustomers(data.data);
       } else {
