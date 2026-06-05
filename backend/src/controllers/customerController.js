@@ -1,8 +1,11 @@
 import Customer from '../models/Customer.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
-// Initialize Gemini SDK
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+// Initialize OpenAI SDK (using the Gemini compatibility layer)
+const openai = process.env.GEMINI_API_KEY ? new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/'
+}) : null;
 
 // Helper to calculate age
 const calculateAge = (dobString) => {
@@ -244,23 +247,32 @@ Degree: ${match.degree}
 
     let introEmail = '';
     
-    if (genAI) {
+    if (openai) {
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
         const prompt = `
-You are a professional, premium matchmaker at 'Milan'.
-Write a short, warm, and highly personalized introductory email (maximum 150 words) from a matchmaker introducing the candidate ${customer.firstName} ${customer.lastName} to ${match.firstName} ${match.lastName}.
-
+Introduce candidate ${customer.firstName} ${customer.lastName} to ${match.firstName} ${match.lastName} based on their profile data.
 Candidate 1 (Subject introducing):
 ${cInfo}
-
 Candidate 2 (Recipient of email):
 ${mInfo}
-
-In the email, address ${match.firstName} directly. Explain why ${customer.firstName} is a great fit for them based on their profile data (e.g. highlight specific compatibilities like shared views on kids, matching dietary preference of ${customer.dietaryPreferences}, similar family setups like ${customer.familyStructure}, relocation/pets alignment, or matching professional backgrounds). Keep the tone encouraging, warm, and professional. Do not use generic placeholders like [Your Name] or [Insert Date]; sign off as "The Milan Matchmaking Team".
+Explain why they are a great fit based on their alignments (e.g. dietary preference, family setups, relocation alignment, pets, or careers). Address ${match.firstName} directly. Sign off as "The Milan Matchmaking Team".
 `;
-        const result = await model.generateContent(prompt);
-        introEmail = result.response.text();
+        const response = await openai.chat.completions.create({
+          model: 'gemini-flash-latest',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert matchmaker. Strictly answer in 2 short sentences.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 60,
+          temperature: 0.5
+        });
+        introEmail = response.choices[0].message.content;
       } catch (err) {
         console.warn('Gemini API call failed, using high-quality mock fallback:', err.message);
         introEmail = generateMockIntro();

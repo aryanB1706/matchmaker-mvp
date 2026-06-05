@@ -19,6 +19,7 @@ const CustomerDetailedView = ({ profile, onClose, onNotesSaved, onSelectProfile 
   // AI Intro Email state
   const [activeIntro, setActiveIntro] = useState(null); // stores { match, emailText }
   const [generatingIntroForId, setGeneratingIntroForId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [introError, setIntroError] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
 
@@ -43,7 +44,7 @@ const CustomerDetailedView = ({ profile, onClose, onNotesSaved, onSelectProfile 
         try {
           const res = await fetch(`/api/customers/${profile._id}/matches`);
           const data = await res.json();
-          if (data.success) {
+          if (data.success && Array.isArray(data.data)) {
             setMatches(data.data);
           } else {
             setMatchesError('Failed to fetch compatible matches.');
@@ -124,6 +125,7 @@ const CustomerDetailedView = ({ profile, onClose, onNotesSaved, onSelectProfile 
 
   // Generate intro email from AI agent
   const handleGenerateIntro = async (match) => {
+    setIsLoading(true);
     setGeneratingIntroForId(match._id);
     setIntroError('');
     setActiveIntro(null);
@@ -147,6 +149,7 @@ const CustomerDetailedView = ({ profile, onClose, onNotesSaved, onSelectProfile 
       setIntroError('Could not connect to the generative AI server.');
     } finally {
       setGeneratingIntroForId(null);
+      setIsLoading(false);
     }
   };
 
@@ -294,7 +297,7 @@ const CustomerDetailedView = ({ profile, onClose, onNotesSaved, onSelectProfile 
                 <div className="col-span-2">
                   <span className="text-slate-400 block mb-1">Languages Known</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {profile.languagesKnown.map((lang, index) => (
+                    {(profile.languagesKnown || []).map((lang, index) => (
                       <span key={index} className="px-2.5 py-0.5 bg-slate-100 border border-slate-200/50 text-slate-700 rounded-md font-medium text-[10px]">
                         {lang}
                       </span>
@@ -561,19 +564,18 @@ const CustomerDetailedView = ({ profile, onClose, onNotesSaved, onSelectProfile 
                         {/* Draft AI Intro button */}
                         <button
                           type="button"
-                          disabled={generatingIntroForId !== null}
+                          disabled={isLoading}
                           onClick={(e) => {
                             e.stopPropagation(); // Avoid switching card profile
                             handleGenerateIntro(match);
                           }}
                           className="flex-1 py-1.5 bg-pink-50/50 hover:bg-pink-100 text-pink-600 disabled:opacity-50 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer border border-pink-100/50"
                         >
-                          {generatingIntroForId === match._id ? (
-                            <Loader2 className="w-3 h-3 animate-spin text-pink-600" />
+                          {isLoading && generatingIntroForId === match._id ? (
+                            '✨ Generating...'
                           ) : (
-                            <Sparkles className="w-3 h-3 text-pink-500" />
+                            '✨ AI Intro'
                           )}
-                          AI Intro
                         </button>
 
                         {/* Send Match mock action button */}
