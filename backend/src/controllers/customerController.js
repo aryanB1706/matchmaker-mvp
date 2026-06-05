@@ -258,7 +258,7 @@ ${mInfo}
 Explain why they are a great fit based on their alignments (e.g. dietary preference, family setups, relocation alignment, pets, or careers). Address ${match.firstName} directly. Sign off as "The Milan Matchmaking Team".
 `;
         const response = await openai.chat.completions.create({
-          model: 'gemini-flash-latest',
+          model: 'gemini-1.5-flash-latest',
           messages: [
             {
               role: 'system',
