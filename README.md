@@ -6,7 +6,7 @@ Milan is a modern, full-stack B2B admin dashboard built for matchmaking professi
 
 ## 🌐 Live Demo & Credentials
 
-* **Live Demo Hosted Link**: [https://milan-matchmaker-mvp.onrender.com](https://milan-matchmaker-mvp.onrender.com) *(Placeholder)*
+* **Live Demo Hosted Link**: [https://matchmaker-mvp.vercel.app](https://matchmaker-mvp.vercel.app)
 * **Sample Admin Credentials**:
   * **Username**: `admin`
   * **Password**: `admin`
