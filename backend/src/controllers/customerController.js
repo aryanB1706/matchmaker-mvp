@@ -156,10 +156,11 @@ export const getCustomerMatches = async (req, res) => {
 
 // 5. Generate AI introduction email using Gemini SDK
 export const generateAIIntro = async (req, res) => {
+  let customer, match;
   try {
     const { id, matchId } = req.params;
-    const customer = await Customer.findById(id);
-    const match = await Customer.findById(matchId);
+    customer = await Customer.findById(id);
+    match = await Customer.findById(matchId);
 
     if (!customer || !match) {
       return res.status(404).json({
@@ -167,54 +168,23 @@ export const generateAIIntro = async (req, res) => {
         message: 'Customer or Match profile not found'
       });
     }
+  } catch (dbErr) {
+    return res.status(500).json({
+      success: false,
+      message: 'Database connection error',
+      error: dbErr.message
+    });
+  }
 
-    const cAge = calculateAge(customer.dateOfBirth);
-    const mAge = calculateAge(match.dateOfBirth);
-
-    const cInfo = `
-Name: ${customer.firstName} ${customer.lastName}
-Gender: ${customer.gender}
-Age: ${cAge} years
-Height: ${customer.height} cm
-Income: ${customer.income} INR annual
-Current Company: ${customer.currentCompany}
-Designation: ${customer.designation}
-Marital Status: ${customer.maritalStatus}
-Dietary Preferences: ${customer.dietaryPreferences}
-Family Structure: ${customer.familyStructure}
-Want Kids: ${customer.wantKids}
-Open to Relocate: ${customer.openToRelocate}
-Open to Pets: ${customer.openToPets}
-Languages: ${customer.languagesKnown.join(', ')}
-Undergraduate College: ${customer.undergraduateCollege}
-Degree: ${customer.degree}
-`;
-
-    const mInfo = `
-Name: ${match.firstName} ${match.lastName}
-Gender: ${match.gender}
-Age: ${mAge} years
-Height: ${match.height} cm
-Income: ${match.income} INR annual
-Current Company: ${match.currentCompany}
-Designation: ${match.designation}
-Marital Status: ${match.maritalStatus}
-Dietary Preferences: ${match.dietaryPreferences}
-Family Structure: ${match.familyStructure}
-Want Kids: ${match.wantKids}
-Open to Relocate: ${match.openToRelocate}
-Open to Pets: ${match.openToPets}
-Languages: ${match.languagesKnown.join(', ')}
-Undergraduate College: ${match.undergraduateCollege}
-Degree: ${match.degree}
-`;
-
-    // Dynamic Fallback in case Gemini API is not initialized or fails
-    const generateMockIntro = () => {
-      const salutation = `Dear ${match.firstName},\n\n`;
-      const introduction = `I hope you are doing well. I'm reaching out from Milan Matchmaking to introduce you to ${customer.firstName} ${customer.lastName}, who I think would be an exceptional match for you.\n\n`;
-      
-      let commonPoints = [];
+  // Define default fallback email in case everything fails
+  const generateMockIntro = () => {
+    const custName = customer ? `${customer.firstName} ${customer.lastName}` : 'Our Client';
+    const matchName = match ? match.firstName : 'Client';
+    const salutation = `Dear ${matchName},\n\n`;
+    const introduction = `I hope you are doing well. I'm reaching out from Milan Matchmaking to introduce you to ${custName}, who I think would be an exceptional match for you.\n\n`;
+    
+    let commonPoints = [];
+    if (customer && match) {
       if (customer.dietaryPreferences === match.dietaryPreferences) {
         commonPoints.push(`your shared preference for a ${customer.dietaryPreferences} lifestyle`);
       }
@@ -233,64 +203,99 @@ Degree: ${match.degree}
       if (customer.currentCompany === match.currentCompany || customer.designation === match.designation) {
         commonPoints.push(`your compatible careers as professionals in similar fields (${customer.designation})`);
       }
-
-      let details = '';
-      if (commonPoints.length > 0) {
-        details = `We noticed a wonderful compatibility between you two, including ${commonPoints.slice(0, -1).join(', ')}${commonPoints.length > 1 ? ' and ' : ''}${commonPoints.slice(-1)}. `;
-      } else {
-        details = `${customer.firstName} is a talented ${customer.designation} at ${customer.currentCompany} who values family, lifestyle compatibility, and shares many of your core values. `;
-      }
-
-      const close = `With such strong alignments in your backgrounds and preferences, I would love to facilitate a quick connection. Please let me know if you would like me to set up an introductory call!\n\nWarm regards,\nThe Milan Matchmaking Team`;
-      return salutation + introduction + details + close;
-    };
-
-    let introEmail = '';
-    
-    if (openai) {
-      try {
-        const prompt = `
-Introduce candidate ${customer.firstName} ${customer.lastName} to ${match.firstName} ${match.lastName} based on their profile data.
-Candidate 1 (Subject introducing):
-${cInfo}
-Candidate 2 (Recipient of email):
-${mInfo}
-Explain why they are a great fit based on their alignments (e.g. dietary preference, family setups, relocation alignment, pets, or careers). Address ${match.firstName} directly. Sign off as "The Milan Matchmaking Team".
-`;
-        const response = await openai.chat.completions.create({
-          model: 'gemini-1.5-flash-latest',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert matchmaker. Strictly answer in 2 short sentences.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 60,
-          temperature: 0.5
-        });
-        introEmail = response.choices[0].message.content;
-      } catch (err) {
-        console.warn('Gemini API call failed, using high-quality mock fallback:', err.message);
-        introEmail = generateMockIntro();
-      }
-    } else {
-      console.log('Gemini API Key missing, generating high-quality mock intro...');
-      introEmail = generateMockIntro();
     }
 
-    res.status(200).json({
-      success: true,
-      email: introEmail
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate introduction email',
-      error: error.message
-    });
+    let details = '';
+    if (commonPoints.length > 0) {
+      details = `We noticed a wonderful compatibility between you two, including ${commonPoints.slice(0, -1).join(', ')}${commonPoints.length > 1 ? ' and ' : ''}${commonPoints.slice(-1)}. `;
+    } else if (customer) {
+      details = `${customer.firstName} is a talented ${customer.designation} at ${customer.currentCompany} who values family, lifestyle compatibility, and shares many of your core values. `;
+    } else {
+      details = `We found great potential alignments in your backgrounds, values, and lifestyle preferences. `;
+    }
+
+    const close = `With such strong alignments in your backgrounds and preferences, I would love to facilitate a quick connection. Please let me know if you would like me to set up an introductory call!\n\nWarm regards,\nThe Milan Matchmaking Team`;
+    return salutation + introduction + details + close;
+  };
+
+  let introEmail = '';
+
+  try {
+    const cAge = calculateAge(customer.dateOfBirth);
+    const mAge = calculateAge(match.dateOfBirth);
+
+    const cLangs = Array.isArray(customer.languagesKnown) ? customer.languagesKnown.join(', ') : '';
+    const mLangs = Array.isArray(match.languagesKnown) ? match.languagesKnown.join(', ') : '';
+
+    const cInfo = `
+Name: ${customer.firstName} ${customer.lastName}
+Gender: ${customer.gender}
+Age: ${cAge} years
+Height: ${customer.height} cm
+Income: ${customer.income} INR annual
+Current Company: ${customer.currentCompany}
+Designation: ${customer.designation}
+Marital Status: ${customer.maritalStatus}
+Dietary Preferences: ${customer.dietaryPreferences}
+Family Structure: ${customer.familyStructure}
+Want Kids: ${customer.wantKids}
+Open to Relocate: ${customer.openToRelocate}
+Open to Pets: ${customer.openToPets}
+Languages: ${cLangs}
+Undergraduate College: ${customer.undergraduateCollege}
+Degree: ${customer.degree}
+`;
+
+    const mInfo = `
+Name: ${match.firstName} ${match.lastName}
+Gender: ${match.gender}
+Age: ${mAge} years
+Height: ${match.height} cm
+Income: ${match.income} INR annual
+Current Company: ${match.currentCompany}
+Designation: ${match.designation}
+Marital Status: ${match.maritalStatus}
+Dietary Preferences: ${match.dietaryPreferences}
+Family Structure: ${match.familyStructure}
+Want Kids: ${match.wantKids}
+Open to Relocate: ${match.openToRelocate}
+Open to Pets: ${match.openToPets}
+Languages: ${mLangs}
+Undergraduate College: ${match.undergraduateCollege}
+Degree: ${match.degree}
+`;
+
+    if (openai) {
+      const response = await openai.chat.completions.create({
+        model: 'gemini-flash-latest',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert matchmaker. Strictly answer in 2 short sentences.'
+          },
+          {
+            role: 'user',
+            content: `Introduce candidate ${customer.firstName} ${customer.lastName} to ${match.firstName} ${match.lastName} based on their profile data. Candidate 1 (Subject): ${cInfo} Candidate 2 (Recipient): ${mInfo}`
+          }
+        ],
+        max_tokens: 60,
+        temperature: 0.5
+      }, {
+        timeout: 3500 // 3.5 seconds timeout limit
+      });
+      introEmail = response.choices[0]?.message?.content;
+    }
+    
+    if (!introEmail || introEmail.trim() === '') {
+      throw new Error('API returned an empty response');
+    }
+  } catch (err) {
+    console.warn('Gemini API call failed, timed out, or returned blank; using mock fallback:', err.message);
+    introEmail = generateMockIntro();
   }
+
+  res.status(200).json({
+    success: true,
+    email: introEmail
+  });
 };
