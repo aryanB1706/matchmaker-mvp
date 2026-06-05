@@ -271,26 +271,26 @@ Degree: ${match.degree}
         messages: [
           {
             role: 'system',
-            content: 'You are an expert matchmaker. Strictly answer in 2 short sentences.'
+            content: 'You are a professional matchmaker. Write a short, warm, and highly personalized introductory email (around 50-80 words) from the Milan Matchmaking Team.'
           },
           {
             role: 'user',
-            content: `Introduce candidate ${customer.firstName} ${customer.lastName} to ${match.firstName} ${match.lastName} based on their profile data. Candidate 1 (Subject): ${cInfo} Candidate 2 (Recipient): ${mInfo}`
+            content: `Introduce candidate ${customer.firstName} ${customer.lastName} to ${match.firstName} ${match.lastName} based on their profile data. Highlight shared values. Address ${match.firstName} directly. Candidate 1 (Subject): ${cInfo} Candidate 2 (Recipient): ${mInfo}`
           }
         ],
-        max_tokens: 60,
+        max_tokens: 200, // Increased to prevent truncation
         temperature: 0.5
       }, {
-        timeout: 3500 // 3.5 seconds timeout limit
+        timeout: 4000 // 4 seconds timeout limit
       });
       introEmail = response.choices[0]?.message?.content;
     }
     
-    if (!introEmail || introEmail.trim() === '') {
-      throw new Error('API returned an empty response');
+    if (!introEmail || introEmail.trim().length < 50) {
+      throw new Error('API returned an empty or too short response');
     }
   } catch (err) {
-    console.warn('Gemini API call failed, timed out, or returned blank; using mock fallback:', err.message);
+    console.warn('Gemini API call failed, timed out, or returned too short response; using mock fallback:', err.message);
     introEmail = generateMockIntro();
   }
 
